@@ -1,206 +1,107 @@
-﻿using System;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.IO;
-using System.Linq;
-using System.Reflection;
-using System.Text;
 using BepInEx;
-using BepInEx.Bootstrap;
 using UnityEngine;
 
 namespace Mythic.ThunderLoader
 {
-
-	[Serializable]
-	public class ModManifestV2
-	{
-		public string ManifestVersion;
-		public string AuthorName;
-		public string Name;
-		public string DisplayName;
-		public string Version;
-		public string WebsiteURL;
-		public string Description;
-		public string GameVersion;
-		public string[] Dependencies;
-		public string[] OptionalDependencies;
-		public string[] Incompatibilities;
-		public string NetworkMode;
-		public string PackageType;
-		public string InstallMode;
-		public string Loader;
-		public object ExtraData;
-
-		public string FullVersionName { get { return $"{AuthorName}-{Name}-{Version}"; } }
-
-		public string FullName { get { return $"{AuthorName}-{Name}"; } }
-	}
-
 	[BepInPlugin("Mythic.ThunderLoader", "ThunderLoader", "1.0.0")]
-	public class ThunderLoader : BaseUnityPlugin
+	public class ThunderLoaderPlugin : BaseUnityPlugin
 	{
-		public string ModLoadPath { get; private set; }
-
 		public void Awake()
 		{
-			ModLoadPath = Path.GetFullPath("Mods");
-			Directory.CreateDirectory(ModLoadPath);
+			var modLoadPath = Path.GetFullPath("Mods");
+			Directory.CreateDirectory(modLoadPath);
 			Logger.LogInfo("---- Initialized ThunderLoader ----");
-			Logger.LogInfo($"Mod discovery path: {ModLoadPath}");
-			Logger.LogInfo("Loading mods...");
-			LoadMods();
+			Logger.LogInfo($"Mod discovery path: {modLoadPath}");
+			LoadBepinexMods(modLoadPath);
 		}
 
-		public void LoadMods()
+		public List<ModInfo> DiscoverMods(string path)
 		{
-			var modInfos = DiscoverMods<BaseUnityPlugin>(ModLoadPath);
-			Logger.LogInfo($"{modInfos.Count} mods discovered!");
-			var modsByName = new Dictionary<string, ModManifestV2>();
-			var loadedMods = new HashSet<string>();
-			foreach (var modInfo in modInfos)
-			{
-				modsByName.Add(modInfo.Key.FullVersionName, modInfo.Key);
-				modsByName.Add(modInfo.Key.FullName, modInfo.Key);
-				// TODO: Add info about conflicting versions
-			}
+			var mods = new List<ModInfo>();
 
-			foreach (var kvp in modInfos)
-			{
-				foreach (var dependency in kvp.Key.Dependencies)
-				{
-					var versionless = dependency.Substring(0, dependency.LastIndexOf('-'));
-
-					// Skip if already loaded
-					if (loadedMods.Contains(dependency))
-						continue;
-
-					// Warn about mismatching version
-					if (loadedMods.Contains(versionless))
-					{
-						Logger.LogWarning($"{kvp.Key.FullName} depends on a different version of a dependency: {dependency}");
-						// TODO: Know what version is loaded and report that
-						Logger.LogWarning($"Loaded version: Unknown");
-						continue;
-					}
-
-					// Load exact match
-					if (modsByName.ContainsKey(dependency))
-					{
-						var manifest = modsByName[versionless];
-						var types = modInfos[manifest];
-						LoadMod(manifest, types);
-						loadedMods.Add(dependency);
-						loadedMods.Add(versionless);
-					}
-					// Load matching mod with different version
-					else if (modsByName.ContainsKey(versionless))
-					{
-						var manifest = modsByName[versionless];
-						var types = modInfos[manifest];
-						Logger.LogWarning($"{kvp.Key.FullName} depends on a different version of a dependency: {dependency}");
-						Logger.LogWarning($"Loading {manifest.FullVersionName} instead");
-						LoadMod(manifest, types);
-						loadedMods.Add(dependency);
-						loadedMods.Add(versionless);
-					}
-					else
-					{
-						Logger.LogWarning($"{kvp.Key.FullName} depends on a missing dependency: {dependency}");
-					}
-				}
-
-				if (!(loadedMods.Contains(kvp.Key.FullName) || loadedMods.Contains(kvp.Key.FullVersionName)))
-					LoadMod(kvp.Key, kvp.Value);
-			}
-		}
-
-		public void LoadMod(ModManifestV2 manifest, List<Type> types)
-		{
-			Logger.LogInfo($"Loading mod {manifest.FullName}...");
-			foreach (var modType in types)
-			{
-				Chainloader.ManagerObject.AddComponent(modType);
-				Logger.LogInfo($"    Loaded {modType.ToString()}");
-			}
-		}
-
-		public Dictionary<ModManifestV2, List<Type>> DiscoverMods<T>(string directory)
-		{
-			var pluginType = typeof(T);
-			var mods = new Dictionary<ModManifestV2, List<Type>>();
-
-			foreach (string modDirectory in Directory.GetDirectories(directory))
+			foreach (string modDirectory in Directory.GetDirectories(path))
 			{
 				// No manifest, no mod
 				var manifestPath = Path.Combine(modDirectory, "manifest.json");
 				if (!File.Exists(manifestPath))
 					continue;
 
-				// TODO: FILTER OUT NON-BEPINEX MODS
-
 				var manifestString = File.ReadAllText(manifestPath);
 				var manifest = JsonUtility.FromJson<ModManifestV2>(manifestString);
-				Logger.LogInfo($"Discovered mod {manifest.FullVersionName}");
+				var modInfo = new ModInfo(manifest, modDirectory);
 
-				var types = new List<Type>();
+				// Not a thunderloader mod
+				if (!modInfo.IsThunderloaderMod)
+					continue;
 
-				foreach (var dllPath in Directory.GetFiles(modDirectory, "*.dll", SearchOption.AllDirectories))
-				{
-					try
-					{
-						AssemblyName assemblyName = AssemblyName.GetAssemblyName(dllPath);
-						Assembly assembly = Assembly.Load(assemblyName);
-
-						foreach (Type type in assembly.GetTypes())
-						{
-							if (!type.IsInterface && !type.IsAbstract && pluginType.IsAssignableFrom(type))
-								types.Add(type);
-						}
-					}
-					catch (BadImageFormatException) { }
-					catch (ReflectionTypeLoadException ex)
-					{
-						Logger.LogError($"Could not load \"{Path.GetFileName(dllPath)}\"!");
-						Logger.LogDebug(TypeLoadExceptionToString(ex));
-					}
-				}
-
-				if (types.Count > 0)
-				{
-					mods.Add(manifest, types);
-				}
+				Logger.LogInfo($"    Discovered [{manifest.FullVersionName}]");
+				mods.Add(modInfo);
 			}
 
 			return mods;
 		}
 
-		private static string TypeLoadExceptionToString(ReflectionTypeLoadException ex)
+		public void VerifyDependencies(IEnumerable<ModInfo> mods, IEnumerable<ModInfo> availableMods)
 		{
-			StringBuilder sb = new StringBuilder();
-			foreach (Exception exSub in ex.LoaderExceptions)
+			var availableModsByName = new Dictionary<string, ModInfo>();
+			foreach (var mod in availableMods)
 			{
-				sb.AppendLine(exSub.Message);
-				if (exSub is FileNotFoundException exFileNotFound)
+				availableModsByName.Add(mod.FullVersionName, mod);
+				if (!availableModsByName.ContainsKey(mod.FullName))
 				{
-					if (!string.IsNullOrEmpty(exFileNotFound.FusionLog))
-					{
-						sb.AppendLine("Fusion Log:");
-						sb.AppendLine(exFileNotFound.FusionLog);
-					}
+					availableModsByName.Add(mod.FullName, mod);
 				}
-				else if (exSub is FileLoadException exLoad)
+				else
 				{
-					if (!string.IsNullOrEmpty(exLoad.FusionLog))
-					{
-						sb.AppendLine("Fusion Log:");
-						sb.AppendLine(exLoad.FusionLog);
-					}
+					Logger.LogError($"Multiple versions of the mod {mod.FullName} are available.");
+					Logger.LogError("This might lead to issues and we recommend you only install one version of the same mod.");
 				}
-
-				sb.AppendLine();
 			}
 
-			return sb.ToString();
+			foreach (var mod in mods)
+			{
+				foreach (var dependency in mod.Manifest.Dependencies)
+				{
+					var versionless = dependency.Substring(0, dependency.LastIndexOf('-'));
+
+					// Dependency found, All OK
+					if (availableModsByName.ContainsKey(dependency))
+						continue;
+
+					// Dependency found, but it's a different version
+					else if (!availableModsByName.ContainsKey(dependency) && availableModsByName.ContainsKey(versionless))
+					{
+						var available = availableModsByName[versionless];
+						Logger.LogWarning($"{mod.FullName} depends on a different version of a dependency: {dependency}");
+						Logger.LogWarning($"Available version: {available.FullVersionName}");
+						continue;
+					}
+
+					// Dependency not found
+					else
+					{
+						Logger.LogWarning($"{mod.FullName} depends on a missing dependency: {dependency}");
+						continue;
+					}
+				}
+			}
+		}
+
+		public void LoadBepinexMods(string path)
+		{
+			Logger.LogInfo("Discovering mods...");
+			var mods = DiscoverMods(path);
+			Logger.LogInfo($"{mods.Count} mods discovered!");
+
+			Logger.LogInfo("Verifying dependencies...");
+			VerifyDependencies(mods, mods);
+
+			Logger.LogInfo("Loading BepInEx mods...");
+			var bepinexLoader = new BepinexLoader(Logger, mods);
+			bepinexLoader.LoadMods();
+			Logger.LogInfo($"Loaded {bepinexLoader.LoadedMods.Count} BepInEx mods!");
 		}
 	}
 }
