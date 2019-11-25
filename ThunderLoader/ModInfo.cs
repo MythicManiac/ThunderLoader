@@ -9,11 +9,44 @@
 
 		public string FullName { get { return Manifest.FullName; } }
 
-		public bool IsThunderloaderMod { get { return Manifest.Loader.ToLowerInvariant().StartsWith("thunderloader"); } }
+		public bool IsThunderloaderMod
+		{
+			get
+			{
+				foreach (var loader in Manifest.Loaders)
+				{
+					if (loader.ToLowerInvariant().StartsWith("thunderloader"))
+						return true;
+				}
+				return false;
+			}
+		}
 
-		public bool IsBepinexMod { get { return Manifest.Loader.ToLowerInvariant() == "thunderloader.bepinex"; } }
+		public bool IsBepinexMod
+		{
+			get
+			{
+				foreach (var loader in Manifest.Loaders)
+				{
+					if (loader.ToLowerInvariant() == "thunderloader.bepinex")
+						return true;
+				}
+				return false;
+			}
+		}
 
-		public bool IsMonoMod { get { return Manifest.Loader.ToLowerInvariant() == "thunderloader.monomod"; } }
+		public bool IsMonoMod
+		{
+			get
+			{
+				foreach (var loader in Manifest.Loaders)
+				{
+					if (loader.ToLowerInvariant() == "thunderloader.monomod")
+						return true;
+				}
+				return false;
+			}
+		}
 
 		public ModInfo(ModManifestV2 manifest, string path)
 		{

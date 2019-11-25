@@ -19,7 +19,7 @@ namespace Mythic.ThunderLoader
 		public string NetworkMode;
 		public string PackageType;
 		public string InstallMode;
-		public string Loader;
+		public string[] Loaders;
 		public object ExtraData;
 
 		public string FullVersionName { get { return $"{AuthorName}-{Name}-{Version}"; } }
