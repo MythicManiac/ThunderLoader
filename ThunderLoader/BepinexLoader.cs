@@ -5,34 +5,23 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Reflection;
+using ThunderLib;
 
 namespace Mythic.ThunderLoader
 {
     public class BepinexLoader
     {
-        public HashSet<ModInfo> LoadedMods { get; protected set; }
-
         public List<ModInfo> ModsToLoad { get; protected set; }
 
-        public Dictionary<string, ModInfo> ModsToLoadByName { get; protected set; }
-
         public ManualLogSource Logger { get; protected set; }
+
+        public HashSet<ModInfo> LoadedMods { get; protected set; }
 
         public BepinexLoader(ManualLogSource logger, List<ModInfo> modsToLoad)
         {
             Logger = logger;
-            LoadedMods = new HashSet<ModInfo>();
-
             ModsToLoad = modsToLoad;
-            ModsToLoadByName = new Dictionary<string, ModInfo>();
-            foreach (var mod in ModsToLoad)
-            {
-                ModsToLoadByName.Add(mod.FullVersionName, mod);
-                if (!ModsToLoadByName.ContainsKey(mod.FullName))
-                {
-                    ModsToLoadByName.Add(mod.FullName, mod);
-                }
-            }
+            LoadedMods = new HashSet<ModInfo>();
         }
 
         public void LoadMods()
@@ -45,27 +34,6 @@ namespace Mythic.ThunderLoader
 
         public void LoadMod(ModInfo modInfo)
         {
-            if (LoadedMods.Contains(modInfo))
-                return;
-
-            if (!modInfo.IsBepinexMod)
-                return;
-
-            // Add to loaded mods already so we don't get infinite recursion
-            LoadedMods.Add(modInfo);
-
-            foreach (var dependency in modInfo.Manifest.Dependencies)
-            {
-                var versionless = dependency.Substring(0, dependency.LastIndexOf('-'));
-                if (ModsToLoadByName.ContainsKey(dependency))
-                {
-                    LoadMod(ModsToLoadByName[dependency]);
-                }
-                else if (ModsToLoadByName.ContainsKey(versionless))
-                {
-                    LoadMod(ModsToLoadByName[versionless]);
-                }
-            }
 
             Logger.LogInfo($"Loading {modInfo.FullVersionName}...");
             foreach (var dllPath in Directory.GetFiles(modInfo.Path, "*.dll", SearchOption.AllDirectories))
@@ -83,6 +51,7 @@ namespace Mythic.ThunderLoader
                             Logger.LogInfo($"    Loaded plugin {type.ToString()}");
                         }
                     }
+                    LoadedMods.Add(modInfo);
                 }
                 catch (BadImageFormatException) { }
                 catch (ReflectionTypeLoadException ex)

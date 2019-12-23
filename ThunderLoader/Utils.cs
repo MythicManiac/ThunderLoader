@@ -1,7 +1,10 @@
-﻿using System;
+using System;
 using System.IO;
 using System.Reflection;
 using System.Text;
+
+using ThunderLib;
+
 
 namespace Mythic.ThunderLoader
 {
