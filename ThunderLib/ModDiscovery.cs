@@ -72,7 +72,14 @@ namespace ThunderLib
 
         public static List<ModInfo> GetModsForLoader(string loader)
         {
-            Log($"Discovering mods for loader {loader}...", ConsoleColor.DarkGreen);
+            var lastColor = Console.ForegroundColor;
+            Console.ForegroundColor = ConsoleColor.DarkGreen;
+            Console.Write($"Discovering mods for loader ");
+            Console.ForegroundColor = ConsoleColor.Cyan;
+            Console.Write($"{loader}");
+            Console.ForegroundColor = ConsoleColor.DarkGreen;
+            Console.WriteLine("...");
+            Console.ForegroundColor = lastColor;
 
             var allMods = DiscoverAllMods();
 
@@ -82,7 +89,7 @@ namespace ThunderLib
                 if (mod.Manifest.InstallMode == ModInstallMode.Managed && mod.HasLoader(loader, true))
                     Log($"    Discovered [{mod.FullVersionName}]", ConsoleColor.DarkGreen);
                 else
-                    Log($"    Skipping [{mod.FullVersionName}]", ConsoleColor.DarkYellow);
+                    Log($"    Skipped [{mod.FullVersionName}]", ConsoleColor.DarkYellow);
                 loaderMods.Add(mod);
             }
 

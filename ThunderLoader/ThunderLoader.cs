@@ -4,7 +4,7 @@ using ThunderLib;
 
 namespace Mythic.ThunderLoader
 {
-    [BepInPlugin("Mythic.ThunderLoader", "ThunderLoader", "1.0.0")]
+    [BepInPlugin("Mythic.ThunderLoader", "ThunderLoader", "0.1.0")]
     public class ThunderLoaderPlugin : BaseUnityPlugin
     {
         public static readonly string LoaderReference = "Mythic-ThunderLoader-0.1.0";
@@ -21,8 +21,8 @@ namespace Mythic.ThunderLoader
             var bepinexMods = new List<ModInfo>();
             foreach(var mod in mods)
             {
-                var args = mod.GetLoaderArgs(LoaderReference, false, false);
-                if(args.ContainsKey("UseBepinex") && (bool)args["UseBepinex"])
+                var args = mod.GetLoaderArgs(LoaderReference, true, false);
+                if(args != null && args.ContainsKey("UseBepinex") && (bool)args["UseBepinex"])
                 {
                     bepinexMods.Add(mod);
                 }
