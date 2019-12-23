@@ -1,13 +1,19 @@
-<Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <TargetFramework>netstandard2.0</TargetFramework>
+      <RootNamespace>ThunderLib</RootNamespace>
+      <AssemblyName>ThunderLib</AssemblyName>
   </PropertyGroup>
 
-  <ItemGroup>
-    <Reference Include="UnityEngine">
-      <HintPath>..\lib\UnityEngine.dll</HintPath>
-    </Reference>
-  </ItemGroup>
+    <Target Name="PostBuild" AfterTargets="PostBuildEvent">
+        <Exec Command="COPY &quot;$(TargetDir)$(TargetFileName)&quot; &quot;C:\Program Files (x86)\Steam\steamapps\common\Risk of Rain 2\BepInEx\plugins\ThunderLoader\$(TargetFileName)&quot;" />
+    </Target>
+
+    <ItemGroup>
+      <Reference Include="Newtonsoft.Json">
+        <HintPath>..\lib\Newtonsoft.Json.dll</HintPath>
+      </Reference>
+    </ItemGroup>
 
 </Project>

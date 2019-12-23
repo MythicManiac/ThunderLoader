@@ -1,16 +1,16 @@
+using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using UnityEngine;
 
 namespace ThunderLib
 {
     public static class ModInstallMode
     {
-        public static readonly string Extract = "extract";
-        public static readonly string Managed = "managed";
-        public static readonly string None = "none";
+        public static readonly string Extract = "Extract";
+        public static readonly string Managed = "Managed";
+        public static readonly string None = "None";
     }
 
     public static class ModDiscovery
@@ -44,7 +44,7 @@ namespace ThunderLib
                 try
                 {
                     var manifestString = File.ReadAllText(manifestPath);
-                    var manifest = JsonUtility.FromJson<ModManifestV2>(manifestString);
+                    var manifest = JsonConvert.DeserializeObject<ModManifestV2>(manifestString);
                     var modInfo = new ModInfo(manifest, modDirectory);
 
                     if (manifest.InstallMode == ModInstallMode.Managed)
@@ -65,7 +65,7 @@ namespace ThunderLib
         public static List<ModInfo> DiscoverAllMods()
         {
             var mods = DiscoverUnmanagedMods();
-            mods.Concat(DiscoverManagedMods());
+            mods = mods.Concat(DiscoverManagedMods()).ToList();
             SortModsByDependencyOrder(mods);
             return mods;
         }
@@ -76,19 +76,19 @@ namespace ThunderLib
 
             var allMods = DiscoverAllMods();
 
-            var loaderMods = allMods.Where(mod => (
-                mod.Manifest.InstallMode == ModInstallMode.Managed
-                && mod.HasLoader(loader, true)
-            )).ToList();
-
-            foreach (var mod in loaderMods)
+            var loaderMods = new List<ModInfo>();
+            foreach (var mod in allMods)
             {
-                Log($"    Discovered [{mod.FullVersionName}]", ConsoleColor.DarkGreen);
+                if (mod.Manifest.InstallMode == ModInstallMode.Managed && mod.HasLoader(loader, true))
+                    Log($"    Discovered [{mod.FullVersionName}]", ConsoleColor.DarkGreen);
+                else
+                    Log($"    Skipping [{mod.FullVersionName}]", ConsoleColor.DarkYellow);
+                loaderMods.Add(mod);
             }
 
             Log("Verifying dependencies...", ConsoleColor.DarkGreen);
-
             CheckDependencies(allMods, allMods);
+            Log("Done!", ConsoleColor.DarkGreen);
 
             return loaderMods;
         }
